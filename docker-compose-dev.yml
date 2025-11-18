@@ -1,0 +1,61 @@
+version: "3.8"
+
+services:
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./api-gateway:/app
+    depends_on:
+      - user-service
+      - job-service
+      - application-service
+      - recommendation-service
+
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: dockerfile
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./user-service:/app
+    environment:
+      - MONGO_URI=${MONGO_URI}
+
+  job-service:
+    build:
+      context: ./job-service
+      dockerfile: dockerfile
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./job-service:/app
+    environment:
+      - MONGO_URI=${MONGO_URI}
+
+  application-service:
+    build:
+      context: ./application-service
+      dockerfile: dockerfile
+    ports:
+      - "3003:3003"
+    volumes:
+      - ./application-service:/app
+    environment:
+      - MONGO_URI=${MONGO_URI}
+
+  recommendation-service:
+    build:
+      context: ./recommendation-service
+      dockerfile: dockerfile
+    ports:
+      - "3004:3004"
+    volumes:
+      - ./recommendation-service:/app
+    environment:
+      - MONGO_URI=${MONGO_URI}

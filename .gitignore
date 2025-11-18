@@ -1,0 +1,62 @@
+# ======================================
+# Ignore môi trường
+# ======================================
+.env
+*.env
+**/.env
+**/*.env
+
+# VSCode history extension
+.history/
+**/.history/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Node modules cho tất cả service
+node_modules/
+**/node_modules/
+
+# Build output
+dist/
+build/
+**/dist/
+**/build/
+
+# Typescript
+*.tsbuildinfo
+
+# Environment runtime
+.DS_Store
+Thumbs.db
+
+# Coverage tools
+coverage/
+.nyc_output/
+
+# Cache
+.cache/
+**/.cache/
+tmp/
+temp/
+
+# MongoDB local dumps
+dump/
+
+# IDE folders
+.vscode/
+.idea/
+
+# Docker crap
+**/.docker
+**/.dockerignore
+docker-compose.override.yml
+
+# Optional: ignore generated uploads (nếu backend có)
+uploads/
+public/uploads/
