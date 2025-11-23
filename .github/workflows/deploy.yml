@@ -32,8 +32,7 @@ jobs:
 
           for SERVICE in "${SERVICES[@]}"; do
             echo "🚀 Building $SERVICE..."
-            cd .$SERVICE
             docker build -t $SERVICE ./$SERVICE
-            docker tag $SERVICE:latest $ECR_REGISTRY/$SERVICE:latest
-            docker push $ECR_REGISTRY/$SERVICE:latest
+            docker tag $SERVICE:latest_formgithub $ECR_REGISTRY/$SERVICE:latest_formgithub
+            docker push $ECR_REGISTRY/$SERVICE:latest_formgithub
           done

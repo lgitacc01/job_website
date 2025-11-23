@@ -8,7 +8,7 @@ const app = express();
 
 app.use(cors());
 
-app.use("/users", createProxyMiddleware({
+app.use("/user", createProxyMiddleware({
   target: "http://user-service:3001",
   changeOrigin: true
 }));
