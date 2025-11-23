@@ -43,5 +43,5 @@ app.get("/health", (req, res) => {
 app.use("/job", jobRoutes);
 
 app.listen(process.env.PORT, () =>
-  console.log(`Job-service running on PORT ${process.env.PORT}`)
+  console.log(`Job-service 1 running on PORT ${process.env.PORT}`)
 );
