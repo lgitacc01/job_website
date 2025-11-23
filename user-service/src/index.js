@@ -44,5 +44,5 @@ app.use("/user", userRoutes);
 
 // Start service
 app.listen(process.env.PORT, () =>
-  console.log(`User-service running on PORT ${process.env.PORT}`)
+  console.log(`User-service 1 running on PORT ${process.env.PORT}`)
 );

@@ -30,5 +30,5 @@ app.use("/recommend", createProxyMiddleware({
 
 app.listen(process.env.PORT, () =>
   console.log(`API Gateway running on PORT ${process.env.PORT}`),
-  console.log(`check nodemon123`)
+  console.log(`check nodemon1234`)
 );
