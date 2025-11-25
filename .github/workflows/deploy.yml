@@ -24,15 +24,34 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Build & Push services
+      - name: Delete old images then Build & Push new ones
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
         run: |
           SERVICES=("api-gateway" "application-service" "job-service" "recommendation-service" "user-service")
 
           for SERVICE in "${SERVICES[@]}"; do
+            echo "🧹 Đang xoá toàn bộ image cũ của $SERVICE trong ECR..."
+
+            IMAGE_IDS=$(aws ecr list-images \
+              --repository-name $SERVICE \
+              --query 'imageIds[*]' \
+              --output json)
+
+            if [ "$IMAGE_IDS" != "[]" ]; then
+              aws ecr batch-delete-image \
+                --repository-name $SERVICE \
+                --image-ids "$IMAGE_IDS" || true
+            fi
+
+            echo "✨ Đã xoá xong repo $SERVICE. Bắt đầu build..."
+
             echo "🚀 Building $SERVICE..."
             docker build -t $SERVICE ./$SERVICE
+
             docker tag $SERVICE:latest $ECR_REGISTRY/$SERVICE:latest
             docker push $ECR_REGISTRY/$SERVICE:latest
+
+            echo "✅ Đã push image mới cho $SERVICE."
           done
