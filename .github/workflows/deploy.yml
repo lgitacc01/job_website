@@ -27,7 +27,7 @@ jobs:
       - name: Delete old images then Build & Push new ones
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_REGION: us-east-1
         run: |
           SERVICES=("api-gateway" "application-service" "job-service" "recommendation-service" "user-service")
 
