@@ -14,7 +14,7 @@ services:
       - user-service
       - job-service
       - application-service
-      - recommendation-service
+      - recommend-service
 
   user-service:
     build:
@@ -49,13 +49,13 @@ services:
     environment:
       - MONGO_URI=${MONGO_URI}
 
-  recommendation-service:
+  recommend-service:
     build:
-      context: ./recommendation-service
+      context: ./recommend-service
       dockerfile: dockerfile
     ports:
       - "3004:3004"
     volumes:
-      - ./recommendation-service:/app
+      - ./recommend-service:/app
     environment:
       - MONGO_URI=${MONGO_URI}

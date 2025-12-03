@@ -23,7 +23,7 @@ app.get("/health", (req, res) => {
     if (isMongoConnected) {
         return res.status(200).json({
             status: "UP",
-            service: "recommendation Service",
+            service: "recommend Service",
             database: "MongoDB",
             connectionStatus: "Connected",
             timestamp: new Date().toISOString()
@@ -32,7 +32,7 @@ app.get("/health", (req, res) => {
         // Status 503 (Service Unavailable) được dùng khi một dependency quan trọng bị lỗi
         return res.status(503).json({
             status: "DOWN",
-            service: "recommendation Service",
+            service: "recommend Service",
             database: "MongoDB",
             connectionStatus: "Disconnected",
             timestamp: new Date().toISOString()

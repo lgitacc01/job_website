@@ -24,7 +24,7 @@ app.use("/application", createProxyMiddleware({
 }));
 
 app.use("/recommend", createProxyMiddleware({
-  target: "http://recommendation-service:3004",
+  target: "http://recommend-service:3004",
   changeOrigin: true
 }));
 
