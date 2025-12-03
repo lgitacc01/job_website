@@ -60,3 +60,6 @@ docker-compose.override.yml
 # Optional: ignore generated uploads (nếu backend có)
 uploads/
 public/uploads/
+
+*.yaml
+*.yml
