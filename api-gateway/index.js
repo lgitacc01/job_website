@@ -24,11 +24,11 @@ app.use("/application", createProxyMiddleware({
 }));
 
 app.use("/recommend", createProxyMiddleware({
-  target: "http://recommendation-service:3004",
+  target: "http://recommend-service:3004",
   changeOrigin: true
 }));
 
 app.listen(process.env.PORT, () =>
   console.log(`API Gateway running on PORT ${process.env.PORT}`),
-  console.log(`check nodemon12345`)
+  console.log(`check nodemon123456`)
 );

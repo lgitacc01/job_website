@@ -61,5 +61,4 @@ docker-compose.override.yml
 uploads/
 public/uploads/
 
-*.yaml
-*.yml
+all-secrets.yaml
