@@ -24,8 +24,7 @@ services:
       - "3001:3001"
     volumes:
       - ./user-service:/app
-    environment:
-      - MONGO_URI=${MONGO_URI}
+    
 
   job-service:
     build:
@@ -35,8 +34,7 @@ services:
       - "3002:3002"
     volumes:
       - ./job-service:/app
-    environment:
-      - MONGO_URI=${MONGO_URI}
+ 
 
   application-service:
     build:
@@ -46,8 +44,7 @@ services:
       - "3003:3003"
     volumes:
       - ./application-service:/app
-    environment:
-      - MONGO_URI=${MONGO_URI}
+   
 
   recommend-service:
     build:
@@ -57,5 +54,4 @@ services:
       - "3004:3004"
     volumes:
       - ./recommend-service:/app
-    environment:
-      - MONGO_URI=${MONGO_URI}
+  

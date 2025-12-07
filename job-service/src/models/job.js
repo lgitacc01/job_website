@@ -1,11 +1,17 @@
 import mongoose from "mongoose";
 
 const JobSchema = new mongoose.Schema({
-  title: String,
-  description: String,
-  company: String,
+  job_id: Number,                 // nếu muốn auto thì bỏ field này
+  job_title: String,
+  closed_date: Date,
   salary: Number,
-  location: String
-});
+  area: String,
+  experience: String,
+  degree: String,
+  post_user_id: Number,
+  description: String,
+  requirements: String,
+  benefits: String
+}, { timestamps: true });
 
-export default mongoose.model("Job", JobSchema);
+export default mongoose.model("Job", JobSchema,"job");
