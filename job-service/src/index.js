@@ -3,12 +3,13 @@ import cors from "cors";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import jobRoutes from "./routes/jobRoutes.js";
+import rabbitconfig from "./config/rabbitconfig.js";
 
 dotenv.config();
 const app = express();
-
 app.use(cors());
 app.use(express.json());
+rabbitconfig();
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("Job-service ➜ MongoDB connected"))

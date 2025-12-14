@@ -1,12 +1,9 @@
 import mongoose from "mongoose";
 
 const ApplicationSchema = new mongoose.Schema({
-  userId: String,
-  jobId: String,
-  status: {
-    type: String,
-    default: "pending"
-  }
+  application_id: Number,
+  user_id: Number,
+  job_id: Number
 });
 
-export default mongoose.model("Application", ApplicationSchema);
+export default mongoose.model("Application", ApplicationSchema,"application");

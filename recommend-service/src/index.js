@@ -3,15 +3,16 @@ import cors from "cors";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import recommendRoutes from "./routes/recommendRoutes.js";
+import { startWorker } from "./config/rabbitconfig.js";
 
 dotenv.config();
 const app = express();
-
+startWorker();
 app.use(cors());
 app.use(express.json());
 
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("Recommend-service ➜ MongoDB connected"))
+  .then(() => console.log("Recomme  nd-service ➜ MongoDB connected"))
   .catch(console.log);
 
 
