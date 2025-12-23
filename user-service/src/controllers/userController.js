@@ -36,6 +36,7 @@ export const login = async (req, res) => {
       role_id: user.role_id,
       username: user.username
     };
+    console.log("SIGN AT:", new Date());
 
     // --- THAY ĐỔI Ở ĐÂY: TẠO 2 TOKEN ---
 
@@ -130,4 +131,71 @@ export const refreshToken = async (req, res) => {
             message: "Refresh Token không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại." 
         });
     }
+};
+
+export const register = async (req, res) => {
+  try {
+    // Nhận dữ liệu cần thiết từ body
+    const { username, password, email, full_name } = req.body;
+
+    // 1. Kiểm tra xem username hoặc email đã tồn tại trong DB chưa
+    const existingUser = await User.findOne({ 
+      $or: [{ username: username }, { email: email }]
+    });
+
+    if (existingUser) {
+      if (existingUser.username === username) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Tên đăng nhập đã tồn tại." 
+        });
+      }
+      if (existingUser.email === email) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Email đã được sử dụng." 
+        });
+      }
+    }
+
+    // 2. Xác định user_id tiếp theo (Tương tự logic auto-increment)
+    const lastUser = await User.findOne().sort({ user_id: -1 }).select('user_id');
+    const nextUserId = lastUser && lastUser.user_id ? lastUser.user_id + 1 : 1;
+    
+    // 3. Hash mật khẩu (Sử dụng bcrypt)
+    // Tăng cường bảo mật bằng cách tạo salt
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    
+    // 4. Tạo đối tượng User mới 
+    // Giả định role_id mặc định là 2 (User/Candidate)
+    const newUser = {
+      user_id: nextUserId,
+      username,
+      password: hashedPassword, // Mật khẩu đã được hash
+      email,
+      full_name: full_name || '', // Có thể là trường tùy chọn
+      role_id: 2 
+    };
+    
+    // 5. Lưu User vào database
+    const user = await User.create(newUser);
+    
+    // 6. Trả về thông tin user đã đăng ký (không bao gồm mật khẩu)
+    const { password: pass, ...userInfo } = user.toObject();
+
+    res.status(201).json({
+      success: true,
+      message: "Đăng ký tài khoản thành công!",
+      user: userInfo
+    });
+    
+  } catch (error) {
+    console.error("Lỗi Đăng ký:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Lỗi Server", 
+      error: error.message 
+    });
+  }
 };

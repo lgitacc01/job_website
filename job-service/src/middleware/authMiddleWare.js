@@ -3,7 +3,6 @@ import jwt from "jsonwebtoken";
 export const verifyToken = (req, res, next) => {
   // Lấy token từ header: "Authorization: Bearer <token>"
   const tokenHeader = req.headers.authorization;
-
   if (!tokenHeader) {
     // 401 Unauthorized - Thiếu thông tin xác thực
     return res.status(401).json({ success: false, message: "Bạn chưa đăng nhập (Thiếu Token)" });
@@ -20,7 +19,6 @@ export const verifyToken = (req, res, next) => {
   try {
     // **SỬA Ở ĐÂY:** Sử dụng khóa bí mật của Access Token
     const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-    
     // Gán thông tin user vào req để dùng ở bước sau
     req.user = decoded; 
     

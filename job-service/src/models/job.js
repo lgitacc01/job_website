@@ -12,7 +12,8 @@ const JobSchema = new mongoose.Schema({
   post_user_id: Number,
   description: String,
   requirements: String,
-  benefits: String
+  benefits: String,
+  status: String  // available, waitting, deleted, outdated
 }, { timestamps: true });
 
 export default mongoose.model("Job", JobSchema,"job");

@@ -31,7 +31,7 @@ const LoginPage = () => {
 
       if (res.data) {
         // Lưu token, role và user_id
-        localStorage.setItem('accessToken', res.data.accessToken);
+         localStorage.setItem('accessToken', res.data.accessToken);
         localStorage.setItem('refreshToken', res.data.refreshToken);
         localStorage.setItem('role_id', res.data.user.role_id);
         // Lưu user_id để sử dụng khi tạo job
