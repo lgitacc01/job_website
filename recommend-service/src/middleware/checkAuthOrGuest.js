@@ -3,7 +3,6 @@ import jwt from "jsonwebtoken";
 
 export const checkAuthOrGuest = (req, res, next) => {
   const tokenHeader = req.headers.authorization;
-  console.log("Auth Header:", tokenHeader);
   // 1. TRƯỜNG HỢP KHÁCH (GUEST): Không có token Header
   if (!tokenHeader) {
     req.user = null; 

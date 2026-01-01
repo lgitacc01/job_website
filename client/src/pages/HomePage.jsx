@@ -38,17 +38,18 @@ const HomePage = () => {
           setTotalPages(json.totalPages || 1);
         } else {
           const token = localStorage.getItem("access_token") || "";
-          const userId = localStorage.getItem("user_id") || "";
+          const userId = localStorage.getItem("user_id") || null;
 
           const res = await axiosClient.get("/recommend/recommend/recommend", {
             params: {
               page,
               limit: 6,
-              userId: userId || undefined, // gửi kèm userId
               ts: Date.now(),
             },
-            headers: token ? { Authorization: `Bearer ${token}` } : undefined, // gửi kèm token
-          });
+            headers: token
+              ? { Authorization: `Bearer ${token}` }
+              : undefined,
+                  });
           const json = res.data;
           setJobs(json.data || []);
           setTotalPages(json.totalPages || 1);
@@ -139,9 +140,7 @@ const HomePage = () => {
       <div className="max-w-6xl mx-auto px-4 mt-10 pb-12">
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-2xl font-bold text-gray-800">Việc làm hấp dẫn</h2>
-          <span className="text-blue-600 cursor-pointer hover:underline font-medium hover:text-blue-700 transition-colors">
-            Xem tất cả →
-          </span>
+          
         </div>
 
         {/* ===== JOB LIST ===== */}
@@ -174,7 +173,7 @@ const HomePage = () => {
                   ← Trang trước
                 </button>
                 <span>
-                  Trang {page} / {totalPages} {isSearching ? "(tìm kiếm)" : "(mặc định)"}
+                  Trang {page} / {totalPages} {isSearching}
                 </span>
                 <button
                   onClick={goNext}

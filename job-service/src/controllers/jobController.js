@@ -30,8 +30,8 @@ export const createJob = async (req, res) => {
     }
 
   const payload = { ...req.body, job_id: nextId };
-  // Ensure new jobs default to 'waitting' status for moderation if no status supplied
-  if (!payload.status) payload.status = 'waitting';
+  // Ensure new jobs default to 'available' status for moderation if no status supplied
+  if (!payload.status) payload.status = 'available';
   if (postUserId) payload.post_user_id = postUserId;
 
     const job = await Job.create(payload);
@@ -518,6 +518,36 @@ export const search_fill = async (req, res) => {
     res.status(500).json({
       message: "Search fill failed",
       error: err.message,
+    });
+  }
+};
+
+export const getPostedJob = async (req, res) => {
+  try {
+    // 1. Lấy user_id từ token (verifyToken đã gán req.user)
+    const user_id = req.user?.user_id || req.user?.id || req.user?._id;
+
+    if (!user_id) {
+      return res.status(401).json({
+        message: "Bạn chưa đăng nhập"
+      });
+    }
+
+    // 2. Lấy các job do user này đăng
+    const jobs = await Job.find({ post_user_id: user_id })
+      .sort({ createdAt: -1 }); // job mới nhất lên trước (nếu có timestamps)
+
+    // 3. Trả kết quả
+    return res.status(200).json({
+      count: jobs.length,
+      data: jobs
+    });
+
+  } catch (error) {
+    console.error("Get Posted Job Error:", error);
+    return res.status(500).json({
+      message: "Lỗi server",
+      error: error.message
     });
   }
 };
