@@ -25,9 +25,21 @@ const CreateJob = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const uid = localStorage.getItem('user_id');
+    // Prefer decoding user id from accessToken, fallback to localStorage 'user_id'
+    const token = localStorage.getItem('accessToken');
+    let uid = null;
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        uid = payload.user_id || payload.id || payload._id || null;
+      } catch (e) {
+        console.warn('Cannot decode accessToken to get user id', e);
+      }
+    }
     if (!uid) {
-      // Nếu chưa đăng nhập -> chuyển tới trang đăng nhập
+      uid = localStorage.getItem('user_id');
+    }
+    if (!uid) {
       navigate('/login');
       return;
     }
@@ -61,7 +73,7 @@ const CreateJob = () => {
         area: form.area,
         experience: form.experience,
         degree: form.degree,
-        post_user_id: Number(form.post_user_id) || Number(userId),
+  post_user_id: Number(form.post_user_id) || Number(userId),
         description: form.description,
         requirements: form.requirements,
         benefits: form.benefits,

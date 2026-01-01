@@ -2,69 +2,124 @@ import React, { useState, useEffect, useRef } from "react";
 import axiosClient from "../api/axiosClient";
 import JobCard from "../components/JobCard";
 import Navbar from "../components/Navbar";
+import SearchBar from "../components/SearchBar";
 
 const HomePage = () => {
   const [jobs, setJobs] = useState([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [animating, setAnimating] = useState(false);
+
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQ, setSearchQ] = useState("");
+  const [searchProvince, setSearchProvince] = useState("");
+
+  const listRef = useRef(null);
 
   useEffect(() => {
-    const fetchJobs = async () => {
+    // Lần đầu: load mặc định trang 1
+    setIsSearching(false);
+    setPage(1);
+  }, []);
+
+  // Mỗi lần page hoặc chế độ thay đổi -> fetch
+  useEffect(() => {
+    const fetch = async () => {
+      setLoading(true);
       try {
-        setAnimating(true);
-        setLoading(true);
+        const token = localStorage.getItem("access_token") || "";
+        if (isSearching) {
+          const res = await axiosClient.get("/job/job/search", {
+            params: { q: searchQ || undefined, province: searchProvince || undefined, page, limit: 6, ts: Date.now() },
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          });
+          const json = res.data;
+          setJobs(json.data || []);
+          setTotalPages(json.totalPages || 1);
+        } else {
+          const token = localStorage.getItem("access_token") || "";
+          const userId = localStorage.getItem("user_id") || null;
 
-        const res = await axiosClient.get(
-          "/recommend/recommend/recommend",
-          { params: { page } }
-        );
-
-        setJobs(res.data?.data || []);
-        setTotalPages(res.data?.totalPages || 1);
-      } catch (err) {
-        console.error(err);
-        setJobs([]);
+          const res = await axiosClient.get("/recommend/recommend/recommend", {
+            params: {
+              page,
+              limit: 6,
+              ts: Date.now(),
+            },
+            headers: token
+              ? { Authorization: `Bearer ${token}` }
+              : undefined,
+                  });
+          const json = res.data;
+          setJobs(json.data || []);
+          setTotalPages(json.totalPages || 1);
+        }
+        if (listRef.current) {
+          listRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      } catch (e) {
+        console.error("Fetch jobs failed:", e);
       } finally {
         setLoading(false);
-        setTimeout(() => {
-          setAnimating(false);
-        }, 50);
       }
     };
+    fetch();
+  }, [page, isSearching, searchQ, searchProvince]);
 
-    fetchJobs();
-  }, [page]);
+  // Nhận submit từ SearchBar
+  const handleSearchSubmit = async ({ q, province, token, userId }) => {
+    setIsSearching(true);
+    setSearchQ(q || "");
+    setSearchProvince(province || "");
+    setPage(1);
 
-  // Ref to the job list container so pagination can scroll to it when needed
-  const listRef = useRef(null);
-  const shouldScrollRef = useRef(false);
+    // Gọi fetch với tham số vừa nhập, không dùng state (tránh phải bấm 2 lần)
+    await fetchSearchPage(1, token, userId, q, province);
+  };
 
-  useEffect(() => {
-    if (shouldScrollRef.current && listRef.current) {
-      listRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-      shouldScrollRef.current = false;
+  const fetchSearchPage = async (nextPage = 1, token, userId, qOverride, provinceOverride) => {
+    setLoading(true);
+    try {
+      const q = (qOverride ?? searchQ) || undefined;
+      const province = (provinceOverride ?? searchProvince) || undefined;
+
+      const res = await axiosClient.get("/job/job/search", {
+        params: {
+          q,
+          province,
+          page: nextPage,
+          limit: 6,
+          userId: userId || undefined,
+          ts: Date.now(),
+        },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      const json = res.data;
+      setJobs(json.data || []);
+      setTotalPages(json.totalPages || 1);
+    } catch (e) {
+      console.error("Fetch jobs failed:", e);
+    } finally {
+      setLoading(false);
     }
-  }, [jobs]);
+  };
+
+  const goPrev = () => {
+    setPage((p) => Math.max(p - 1, 1));
+  };
+  const goNext = () => {
+    setPage((p) => Math.min(p + 1, totalPages));
+  };
 
   return (
     <div className="bg-gray-100 min-h-screen">
       {/* ===== NAVBAR ===== */}
       <Navbar />
-
       {/* ===== SEARCH WITH BACKGROUND IMAGE ===== */}
-      <div 
-        className="relative py-24 overflow-hidden"
-        style={{
-          backgroundImage: `url('https://images.unsplash.com/photo-1521737711867-e3b97375f902?q=80&w=1920')`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
+      <div className="relative py-24 overflow-hidden">
         {/* Overlay để làm tối hình nền */}
         <div className="absolute inset-0 bg-gradient-to-r from-blue-900/80 to-blue-700/80"></div>
-        
+
         {/* Content */}
         <div className="relative z-10 max-w-6xl mx-auto px-4">
           <h1 className="text-white text-5xl font-extrabold text-center mb-3">
@@ -73,20 +128,7 @@ const HomePage = () => {
           <p className="text-blue-100 text-center mb-8 text-lg">
             Hàng nghìn cơ hội việc làm đang chờ đón bạn
           </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 items-center">
-            <input
-              className="flex-1 px-6 py-4 rounded-lg border-2 border-transparent outline-none focus:border-blue-400 transition-all shadow-xl bg-white/95"
-              placeholder="Nhập tên vị trí, công ty, từ khóa"
-            />
-            <input
-              className="w-64 px-5 py-4 rounded-lg border-2 border-transparent outline-none focus:border-blue-400 transition-all shadow-xl bg-white/95"
-              placeholder="Tỉnh/thành"
-            />
-            <button className="bg-yellow-500 text-gray-900 px-8 py-4 rounded-lg hover:bg-yellow-400 transition-all duration-200 font-bold shadow-xl hover:shadow-2xl">
-              🔍 Tìm kiếm
-            </button>
-          </div>
+          <SearchBar onSubmit={handleSearchSubmit} />
         </div>
 
         {/* Decorative elements */}
@@ -98,95 +140,51 @@ const HomePage = () => {
       <div className="max-w-6xl mx-auto px-4 mt-10 pb-12">
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-2xl font-bold text-gray-800">Việc làm hấp dẫn</h2>
-          <span className="text-blue-600 cursor-pointer hover:underline font-medium hover:text-blue-700 transition-colors">
-            Xem tất cả →
-          </span>
+          
         </div>
 
         {/* ===== JOB LIST ===== */}
         <div
           ref={listRef}
-          className={`
-            grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8
-            transition-all duration-300 ease-out
-            ${animating ? "opacity-0 translate-y-6" : "opacity-100 translate-y-0"}
-          `}
+          className="max-w-6xl mx-auto px-4 py-8"
         >
-          {loading
-            ? Array.from({ length: 6 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-44 bg-gray-200 rounded-xl animate-pulse shadow-sm"
-                />
-              ))
-            : jobs.map((job) => (
-                <div key={job._id || job.job_id} className="h-full">
-                  <JobCard job={job} />
-                </div>
-              ))}
-        </div>
+          {loading ? (
+            <p>Đang tải...</p>
+          ) : (
+            <>
+              {jobs.length === 0 ? (
+                <p>Không có kết quả.</p>
+              ) : (
+                <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {jobs.map((job) => (
+                    <li key={job._id || job.job_id}>
+                      <JobCard job={job} />
+                    </li>
+                  ))}
+                </ul>
+              )}
 
-        {/* ===== PAGINATION (MODERN DESIGN) ===== */}
-        <div className="flex justify-center items-center gap-4 mt-12">
-          <button
-            disabled={page === 1}
-            onClick={() => {
-              shouldScrollRef.current = true;
-              setPage((p) => Math.max(1, p - 1));
-            }}
-            className={`
-              group relative px-5 py-2.5 rounded-lg font-medium
-              transition-all duration-200 flex items-center gap-2
-              ${
-                page === 1
-                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                  : "bg-white text-blue-600 hover:bg-blue-600 hover:text-white shadow-md hover:shadow-lg border border-blue-200"
-              }
-            `}
-          >
-            <svg 
-              className="w-5 h-5 transition-transform group-hover:-translate-x-1" 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            <span className="hidden sm:inline">Trước</span>
-          </button>
-
-          <div className="px-6 py-2.5 bg-white rounded-lg shadow-md border border-gray-200">
-            <span className="text-sm text-gray-600">
-              Trang <span className="font-bold text-blue-600 text-base">{page}</span> / {totalPages}
-            </span>
-          </div>
-
-          <button
-            disabled={page >= totalPages}
-            onClick={() => {
-              shouldScrollRef.current = true;
-              setPage((p) => Math.min(totalPages, p + 1));
-            }}
-            className={`
-              group relative px-5 py-2.5 rounded-lg font-medium
-              transition-all duration-200 flex items-center gap-2
-              ${
-                page >= totalPages
-                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                  : "bg-white text-blue-600 hover:bg-blue-600 hover:text-white shadow-md hover:shadow-lg border border-blue-200"
-              }
-            `}
-          >
-            <span className="hidden sm:inline">Sau</span>
-            <svg 
-              className="w-5 h-5 transition-transform group-hover:translate-x-1" 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
+              <div className="flex items-center justify-center gap-4 mt-6">
+                <button
+                  onClick={goPrev}
+                  disabled={page <= 1}
+                  className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 disabled:opacity-50"
+                >
+                  ← Trang trước
+                </button>
+                <span>
+                  Trang {page} / {totalPages} {isSearching}
+                </span>
+                <button
+                  onClick={goNext}
+                  disabled={page >= totalPages}
+                  className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 disabled:opacity-50"
+                >
+                  Trang sau →
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

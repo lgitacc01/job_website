@@ -3,7 +3,6 @@ import jwt from "jsonwebtoken";
 
 export const checkAuthOrGuest = (req, res, next) => {
   const tokenHeader = req.headers.authorization;
-
   // 1. TRƯỜNG HỢP KHÁCH (GUEST): Không có token Header
   if (!tokenHeader) {
     req.user = null; 
@@ -16,7 +15,6 @@ export const checkAuthOrGuest = (req, res, next) => {
   }
   
   const token = tokenHeader.split(" ")[1]; 
-
   // BỔ SUNG: 2a. Xử lý token rỗng (ví dụ: Header là "Bearer ")
   if (!token) {
     req.user = null; // Coi như khách (Guest)

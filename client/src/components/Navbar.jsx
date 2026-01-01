@@ -50,35 +50,34 @@ const Navbar = () => {
               const userId = localStorage.getItem('user_id');
               if (!token || !userId) {
                 // redirect to login if not authenticated
-                window.location.href = '/login';
+                navigate('/login');
                 return;
               }
               // else navigate to candidates
-              window.location.href = '/candidates';
+              navigate('/candidates');
             }}
             className="text-gray-700 hover:text-blue-600 font-medium"
           >
             Tìm ứng viên
           </button>
 
-          {/* 👑 ADMIN MENU */}
-          {token && roleId === 1 && (
-            <>
-              <Link
-                to="/admin/users"
-                className="text-gray-700 hover:text-blue-600 font-medium"
-              >
-                Quản lý người dùng
-              </Link>
+          <button
+            onClick={() => {
+              const token = localStorage.getItem('accessToken');
+              const userId = localStorage.getItem('user_id');
+              if (!token || !userId) {
+                navigate('/login');
+                return;
+              }
+              navigate('/my-jobs');
+            }}
+            className="text-gray-700 hover:text-blue-600 font-medium"
+          >
+            Công việc của tôi
+          </button>
 
-              <Link
-                to="/admin/jobs"
-                className="text-gray-700 hover:text-blue-600 font-medium"
-              >
-                Quản lý đăng việc
-              </Link>
-            </>
-          )}
+         
+          
         </div>
 
         {/* RIGHT */}
@@ -113,24 +112,11 @@ const Navbar = () => {
                   to="/profile"
                   className="block px-4 py-2 hover:bg-gray-100"
                 >
-                  👤 Thông tin cá nhân
+                  👤 Hồ sơ cá nhân
                 </Link>
 
                 {roleId === 1 && (
                   <>
-                    <Link
-                      to="/admin/users"
-                      className="block px-4 py-2 hover:bg-gray-100"
-                    >
-                      🧑‍💼 Quản lý người dùng
-                    </Link>
-
-                    <Link
-                      to="/admin/jobs"
-                      className="block px-4 py-2 hover:bg-gray-100"
-                    >
-                      📄 Quản lý đăng việc
-                    </Link>
                   </>
                 )}
 

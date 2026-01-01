@@ -1,79 +1,98 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 
 const JobCard = ({ job = {} }) => {
+  const navigate = useNavigate();
+
   const {
     job_title = "Untitled",
     area = "N/A",
     salary,
     createdAt,
-    isHot,
     company = "Công ty",
     company_name,
-  tags = [],
-  level,
-  seniority,
-  rank,
-  experience,
-  description,
+    experience,
+    description,
   } = job;
 
   const displayCompany = company_name || company;
 
-  // salary is stored as a string in the model. Display raw string when present.
-  // If the string is purely numeric, format with thousand separators and append ' VND'.
   let formattedSalary = "Thỏa thuận";
-  if (salary && typeof salary === 'string' && salary.trim().length > 0) {
+  if (salary && typeof salary === "string" && salary.trim()) {
     const s = salary.trim();
-    // numeric check (allow commas/dots)
-    const numeric = s.replace(/[\.,]/g, '').match(/^\d+$/);
-    if (numeric) {
-      formattedSalary = `${Number(s.replace(/[\.,]/g, '')).toLocaleString()} VND`;
-    } else {
-      formattedSalary = s; // show as provided
-    }
+    const numeric = s.replace(/[\.,]/g, "").match(/^\d+$/);
+    formattedSalary = numeric
+      ? `${Number(s.replace(/[\.,]/g, "")).toLocaleString()} VND`
+      : s;
   }
 
-  const date = createdAt ? new Date(createdAt) : null;
-
   return (
-    <article
-      className="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transform-gpu hover:scale-105 transition-all duration-200 relative flex flex-col h-full justify-between border border-transparent hover:border-blue-50"
-  aria-label={`Job: ${job_title} at ${displayCompany}`}
-      role="article"
+    <div
+      className="
+        relative bg-white rounded-2xl border border-gray-100
+        shadow-lg hover:shadow-2xl transition-all
+        p-5 h-[360px] flex flex-col
+      "
+      role="button"
+      tabIndex={0}
+      onClick={() => {
+        const token = localStorage.getItem("accessToken");
+        const userId = localStorage.getItem("user_id");
+        if (!token || !userId) {
+          navigate("/login");
+          return;
+        }
+        if (job.job_id) navigate(`/job/${job.job_id}`);
+      }}
     >
-      {/* Left: Badge / Company avatar */}
-      <div className="flex-shrink-0">
-        <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center text-blue-700 font-bold text-lg">
+      {/* ===== HEADER ===== */}
+      <div className="flex items-start gap-4">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold shadow-md shrink-0">
           {displayCompany?.charAt(0)?.toUpperCase() || "C"}
         </div>
-      </div>
 
-      {/* Main content */}
-      <div className="flex-1 min-w-0 flex flex-col">
-        <div className="flex items-start justify-between gap-3">
-          <div className="pr-4 min-w-0 flex-1">
-            <h3 className="text-gray-900 text-base md:text-lg font-semibold mb-1 line-clamp-2">
-              {job_title}
-            </h3>
-            <p className="text-sm text-gray-500 truncate">{displayCompany}</p>
-            <p className="text-sm text-gray-600 mt-1">{area}</p>
-            {experience ? (
-              <p className="text-sm text-indigo-800 mt-1">Kinh nghiệm: {experience}</p>
-            ) : null}
-            {/* Salary moved down into main content */}
-            <p className="mt-3 text-sm text-gray-700 font-medium">{formattedSalary}</p>
-          </div>
+        <div className="flex-1">
+          <h3 className="text-lg font-semibold text-gray-900 line-clamp-2 min-h-[48px]">
+            {job_title}
+          </h3>
+          <p className="text-sm text-gray-600 truncate">
+            {displayCompany}
+          </p>
 
-          <div className="text-right flex flex-col items-end gap-2">
-            {isHot && (
-              <span className="inline-block bg-orange-400 text-white text-xs px-2 py-1 rounded-full">HOT</span>
+          <div className="mt-2 flex flex-wrap gap-2 min-h-[32px]">
+            {area && (
+              <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">
+                📍 {area}
+              </span>
+            )}
+            {formattedSalary && (
+              <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium">
+                💸 {formattedSalary}
+              </span>
+            )}
+            {experience && (
+              <span className="px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 text-xs font-medium">
+                🎯 {experience}
+              </span>
             )}
           </div>
         </div>
-
-        {/* (intentionally omitted tags and actions) */}
       </div>
-    </article>
+
+      {/* ===== DESCRIPTION ===== */}
+      <div className="mt-4 text-sm text-gray-700 line-clamp-3 min-h-[60px]">
+        {description || "Mô tả đang cập nhật."}
+      </div>
+
+      {/* ===== FOOTER ===== */}
+      <div className="mt-auto flex items-center justify-between pt-4">
+        <button className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500 transition">
+          Xem chi tiết
+        </button>
+      </div>
+
+      <div className="absolute inset-0 pointer-events-none rounded-2xl ring-1 ring-gray-200/70" />
+    </div>
   );
 };
 

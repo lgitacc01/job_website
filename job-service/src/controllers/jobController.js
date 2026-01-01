@@ -1,5 +1,6 @@
 import Job from "../models/job.js";
-import { publishSearchEvent } from '../config/rabbitconfig.js';
+import { publishRecommendSearch } from "../config/rabbitconfig.js";
+// dùng rabbitconfig có sẵn
 
 export const getAllJobs = async (req, res) => {
   const jobs = await Job.find();
@@ -7,12 +8,31 @@ export const getAllJobs = async (req, res) => {
 };
 
 export const createJob = async (req, res) => {
-  try {
+  try { 
     // Determine the next job_id by inspecting the current max
     const last = await Job.findOne().sort({ job_id: -1 }).select('job_id');
     const nextId = last && last.job_id ? last.job_id + 1 : 1;
 
-    const payload = { ...req.body, job_id: nextId };
+    // Determine post_user_id: prefer req.user (set by verifyToken middleware).
+    // If not present, try to decode Authorization header token as a fallback.
+    let postUserId = null;
+    if (req.user && (req.user.user_id || req.user.id || req.user._id)) {
+      postUserId = req.user.user_id || req.user.id || req.user._id;
+    } else if (req.headers && req.headers.authorization) {
+      try {
+        const token = req.headers.authorization.split(' ')[1];
+        // decode without verification to avoid requiring secret here
+        const decoded = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString('utf8'));
+        postUserId = decoded.user_id || decoded.id || decoded._id || null;
+      } catch (e) {
+        console.warn('Could not decode token to extract user id:', e.message);
+      }
+    }
+
+  const payload = { ...req.body, job_id: nextId };
+  // Ensure new jobs default to 'available' status for moderation if no status supplied
+  if (!payload.status) payload.status = 'available';
+  if (postUserId) payload.post_user_id = postUserId;
 
     const job = await Job.create(payload);
     res.status(201).json(job);
@@ -22,58 +42,113 @@ export const createJob = async (req, res) => {
   }
 };
 
+const extractUserId = (decoded) => {
+  if (!decoded) return null;
+
+  return (
+    decoded.user_id ||
+    decoded.id ||
+    decoded._id ||
+    decoded.user?.user_id ||
+    decoded.user?.id ||
+    decoded.user?._id ||
+    null
+  );
+};
+
 export const searchJobs = async (req, res) => {
   try {
-    // Lấy từ khóa từ query params
-    const { q } = req.query; 
+    const { q = "", province = "", excludeIds = "" } = req.query;
 
-    if (!q) {
-      return res.status(400).json({ message: "Vui lòng nhập từ khóa tìm kiếm" });
+    // =========================
+    // Pagination
+    // =========================
+    const DEFAULT_LIMIT = 6;
+    const page = Math.max(parseInt(req.query.page || "1", 10) || 1, 1);
+    const limit = Math.max(parseInt(req.query.limit || DEFAULT_LIMIT, 10) || DEFAULT_LIMIT, 1);
+    const skip = (page - 1) * limit;
+
+    const hasQ = typeof q === "string" && q.trim().length > 0;
+    const hasProvince = typeof province === "string" && province.trim().length > 0;
+
+    const excludeJobIds = excludeIds
+      ? excludeIds.split(",").map(id => Number(id)).filter(Boolean)
+      : [];
+
+    // =========================
+    // Query
+    // =========================
+    const baseFilter = {
+      status: { $in: ["available", "outdated"] },
+      ...(excludeJobIds.length > 0 && { job_id: { $nin: excludeJobIds } })
+    };
+
+    let query = { ...baseFilter };
+
+    if (hasQ && hasProvince) {
+      const regexQ = { $regex: q.trim(), $options: "i" };
+      const regexProvince = { $regex: province.trim(), $options: "i" };
+      query = {
+        ...baseFilter,
+        $and: [
+          { $or: [{ job_title: regexQ }, { company_name: regexQ }] },
+          { area: regexProvince },
+        ],
+      };
+    } else if (hasQ) {
+      const regexQ = { $regex: q.trim(), $options: "i" };
+      query = {
+        ...baseFilter,
+        $or: [{ job_title: regexQ }, { company_name: regexQ }, { area: regexQ }],
+      };
+    } else if (hasProvince) {
+      const regexProvince = { $regex: province.trim(), $options: "i" };
+      query = { ...baseFilter, area: regexProvince };
     }
 
-    // ============================================================
-    // 🔴 ĐOẠN CODE MỚI: Gửi sự kiện Search sang RabbitMQ
-    // ============================================================
-    
-    // Lưu ý: req.user thường có được nhờ Middleware xác thực (JWT/Session)
-    // Nếu user chưa đăng nhập (khách vãng lai), userId có thể là null
-    const userId = req.user ? req.user.user_id : null; 
+    const total = await Job.countDocuments(query);
+    const jobs = await Job.find(query)
+      .sort({ job_id: -1 })
+      .skip(skip)
+      .limit(limit);
 
-    if (userId) {
-        // Gọi hàm producer để đẩy tin nhắn vào hàng đợi
-        // Dùng await để đảm bảo tin nhắn được gửi (do producer của bạn có logic đóng connection)
-        await publishSearchEvent(userId, q);
-    } else {
-        console.log("⚠️ Guest search - Không gửi event rabbitmq (không có userId)");
+    // =========================
+    // Publish search event
+    // =========================
+    const userId = extractUserId(req.user);
+
+    if (userId && (hasQ || hasProvince)) {
+      const payload = {
+        userId,
+        q: q || null,
+        province: province || null,
+        type: "search",
+        source: "job-service",
+        timestamp: new Date().toISOString(),
+      };
+
+      publishRecommendSearch(payload).catch((err) =>
+        console.warn("[searchJobs] publish error:", err?.message || err)
+      );
     }
-    // ============================================================
-
-
-    // --- Logic tìm kiếm cũ vẫn giữ nguyên ---
-
-    // 2. Tách chuỗi tìm kiếm
-    const keywords = q.split(/\s+/);
-
-    // 3. Tạo điều kiện Regex
-    const searchConditions = keywords.map(word => ({
-      job_title: { $regex: word, $options: 'i' }
-    }));
-
-    // 4. Query Database
-    const jobs = await Job.find({
-      $or: searchConditions
-    });
 
     res.json({
+      currentPage: page,
+      totalPages: Math.max(Math.ceil(total / limit), 1),
+      totalJobs: total,
       count: jobs.length,
-      data: jobs
+      data: jobs,
     });
 
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Lỗi Server", error: error.message });
+  } catch (err) {
+    console.error("[searchJobs] error:", err);
+    res.status(500).json({
+      message: "Search failed",
+      error: err.message,
+    });
   }
 };
+
 // Ví dụ: import Job model (tùy thuộc vào cấu trúc dự án của bạn)
 // import Job from '../models/Job.js'; 
 
@@ -248,6 +323,230 @@ export const getJobsPagination = async (req, res) => {
     console.error("Lỗi Get Jobs Pagination:", error);
     res.status(500).json({
       message: "Lỗi Server",
+      error: error.message
+    });
+  }
+};
+/**
+ * @route GET /api/jobs/home
+ * @desc Lấy tất cả các Job có trạng thái 'available' hoặc 'outdated'.
+ * @access Public
+ */
+/**
+ * @route GET /api/jobs/home/pagination
+ * @desc Lấy danh sách Job (available/outdated) có phân trang. Mặc định 6 jobs/trang.
+ * @access Public
+ */
+export const getJobsForHomePagination = async (req, res) => {
+  try {
+    const DEFAULT_LIMIT = 6;
+    
+    // 1. Lấy và Xử lý tham số phân trang
+    const pageQuery = req.query.page;
+    const limitQuery = req.query.limit;
+
+    let page = 1;
+    if (pageQuery) {
+      const parsedPage = parseInt(pageQuery, 10);
+      if (!isNaN(parsedPage) && parsedPage > 0) {
+        page = parsedPage;
+      }
+    }
+
+    let limit = DEFAULT_LIMIT;
+    if (limitQuery) {
+      const parsedLimit = parseInt(limitQuery, 10);
+      if (!isNaN(parsedLimit) && parsedLimit > 0) {
+        limit = parsedLimit;
+      }
+    }
+
+    // 2. Định nghĩa Điều kiện Lọc (Giữ nguyên logic 'available' và 'outdated')
+    const filterCondition = {
+      status: { $in: ['available', 'outdated'] }
+    };
+    
+    // 3. Tính toán Metadata (Tổng số Job thỏa mãn điều kiện)
+    // 🔥 Tổng số job có status là 'available' hoặc 'outdated'
+    const totalFilteredJobs = await Job.countDocuments(filterCondition);
+    const totalPages = Math.ceil(totalFilteredJobs / limit) || 1;
+
+    // Use stable skip/limit pagination
+    const skip = (page - 1) * limit;
+
+    // 4. Truy vấn Database (Tìm kiếm, Sắp xếp, Bỏ qua, Giới hạn)
+    const jobs = await Job.find(filterCondition) // Áp dụng điều kiện lọc
+      .sort({ job_id: -1 }) // Job mới nhất lên đầu
+      .skip(skip)
+      .limit(limit);
+
+    // 5. Xử lý trường hợp hết trang
+    if (jobs.length === 0 && page > totalPages) {
+      return res.status(200).json({
+        currentPage: page,
+        totalPages,
+        totalJobs: totalFilteredJobs,
+        count: 0,
+        data: [],
+        message: "Đã hết Job có trạng thái 'available' hoặc 'outdated'."
+      });
+    }
+
+    // 6. Trả về kết quả
+    res.status(200).json({
+      currentPage: page,
+      totalPages,
+      totalJobs: totalFilteredJobs,
+      count: jobs.length,
+      startJobId: jobs.length > 0 ? jobs[jobs.length - 1].job_id : null,
+      endJobId: jobs.length > 0 ? jobs[0].job_id : null,
+      data: jobs
+    });
+
+  } catch (error) {
+    console.error("Lỗi Get Jobs For Home Pagination:", error);
+    res.status(500).json({
+      message: "Lỗi Server",
+      error: error.message
+    });
+  }
+};
+
+export const search_fill = async (req, res) => {
+  try {
+    const { q = "", province = "", excludeIds = "" } = req.query;
+
+    const DEFAULT_LIMIT = 6;
+    const page = Math.max(parseInt(req.query.page || "1", 10) || 1, 1);
+    const limit = Math.max(parseInt(req.query.limit || DEFAULT_LIMIT, 10) || DEFAULT_LIMIT, 1);
+    const skip = (page - 1) * limit;
+
+    const hasQ = typeof q === "string" && q.trim().length > 0;
+    const hasProvince = typeof province === "string" && province.trim().length > 0;
+
+    const excludeJobIds = excludeIds
+      ? excludeIds.split(",").map(Number).filter(Boolean)
+      : [];
+
+    // =========================
+    // Base filter (giống 2 hàm cũ)
+    // =========================
+    const baseFilter = {
+      status: { $in: ["available", "outdated"] },
+      ...(excludeJobIds.length > 0 && { job_id: { $nin: excludeJobIds } }),
+    };
+
+    // =========================
+    // 1. Query JOB MATCH SEARCH
+    // =========================
+    let searchQuery = null;
+
+    if (hasQ || hasProvince) {
+      const conditions = [];
+
+      if (hasQ) {
+        const regexQ = { $regex: q.trim(), $options: "i" };
+        conditions.push({
+          $or: [
+            { job_title: regexQ },
+            { company_name: regexQ },
+            { area: regexQ },
+          ],
+        });
+      }
+
+      if (hasProvince) {
+        const regexProvince = { $regex: province.trim(), $options: "i" };
+        conditions.push({ area: regexProvince });
+      }
+
+      searchQuery = {
+        ...baseFilter,
+        $and: conditions,
+      };
+    }
+
+    const matchedJobs = searchQuery
+      ? await Job.find(searchQuery).sort({ job_id: -1 })
+      : [];
+
+    const matchedIds = matchedJobs.map(j => j.job_id);
+
+    // =========================
+    // 2. Fill JOB KHÔNG MATCH
+    // =========================
+    const remainingJobs = await Job.find({
+      ...baseFilter,
+      ...(matchedIds.length > 0 && { job_id: { $nin: matchedIds } }),
+    }).sort({ job_id: -1 });
+
+    // =========================
+    // 3. Merge + Pagination
+    // =========================
+    const mergedJobs = [...matchedJobs, ...remainingJobs];
+    const total = mergedJobs.length;
+    const paginatedJobs = mergedJobs.slice(skip, skip + limit);
+
+    // =========================
+    // 4. Publish search event (giống searchJobs)
+    // =========================
+    const userId = extractUserId(req.user);
+    if (userId && (hasQ || hasProvince)) {
+      publishRecommendSearch({
+        userId,
+        q: q || null,
+        province: province || null,
+        type: "search_fill",
+        source: "job-service",
+        timestamp: new Date().toISOString(),
+      }).catch(() => {});
+    }
+
+    // =========================
+    // 5. Response
+    // =========================
+    res.json({
+      currentPage: page,
+      totalPages: Math.max(Math.ceil(total / limit), 1),
+      totalJobs: total,
+      count: paginatedJobs.length,
+      data: paginatedJobs,
+    });
+
+  } catch (err) {
+    console.error("[search_fill] error:", err);
+    res.status(500).json({
+      message: "Search fill failed",
+      error: err.message,
+    });
+  }
+};
+
+export const getPostedJob = async (req, res) => {
+  try {
+    // 1. Lấy user_id từ token (verifyToken đã gán req.user)
+    const user_id = req.user?.user_id || req.user?.id || req.user?._id;
+
+    if (!user_id) {
+      return res.status(401).json({
+        message: "Bạn chưa đăng nhập"
+      });
+    }
+
+    // 2. Lấy các job do user này đăng
+    const jobs = await Job.find({ post_user_id: user_id })
+      .sort({ createdAt: -1 }); // job mới nhất lên trước (nếu có timestamps)
+
+    // 3. Trả kết quả
+    return res.status(200).json({
+      count: jobs.length,
+      data: jobs
+    });
+
+  } catch (error) {
+    console.error("Get Posted Job Error:", error);
+    return res.status(500).json({
+      message: "Lỗi server",
       error: error.message
     });
   }

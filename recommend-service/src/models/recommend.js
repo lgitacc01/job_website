@@ -2,7 +2,8 @@ import mongoose from "mongoose";
 
 const RecommendSchema = new mongoose.Schema({
   userId: String,
-  last_search: String
+  last_search: String,
+  area: String
 });
 
 // --- SỬA Ở ĐÂY ---

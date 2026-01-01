@@ -10,4 +10,4 @@ const UserSchema = new mongoose.Schema({
   role_id: { type: Number }
 });
 
-export default mongoose.model("User", UserSchema, "user");
+export default mongoose.model("User", UserSchema, "user");  

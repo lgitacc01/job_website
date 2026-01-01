@@ -10,6 +10,9 @@ services:
       - "3000:3000"
     volumes:
       - ./api-gateway:/app
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
     depends_on:
       - user-service
       - job-service
@@ -24,7 +27,9 @@ services:
       - "3001:3001"
     volumes:
       - ./user-service:/app
-    
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
 
   job-service:
     build:
@@ -34,7 +39,9 @@ services:
       - "3002:3002"
     volumes:
       - ./job-service:/app
- 
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
 
   application-service:
     build:
@@ -44,7 +51,9 @@ services:
       - "3003:3003"
     volumes:
       - ./application-service:/app
-   
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
 
   recommend-service:
     build:
@@ -54,4 +63,6 @@ services:
       - "3004:3004"
     volumes:
       - ./recommend-service:/app
-  
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
