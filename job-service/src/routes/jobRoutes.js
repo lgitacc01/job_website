@@ -1,6 +1,6 @@
 import express from "express";
 import { getAllJobs, createJob ,searchJobs,getRandomJobs,getJobById,getJobsPagination,getJobsForHomePagination,search_fill,getPostedJob} from "../controllers/jobController.js";
-import { verifyToken } from "../middleware/authMiddleware.js";
+import { verifyToken } from "../middleware/authMiddleWare.js";
 import { optionalVerifyToken } from "../middleware/optionalVerifyToken.js";
 
 const router = express.Router();

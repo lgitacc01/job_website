@@ -28,30 +28,33 @@ const extractUserId = (decoded) => {
 
 export const getJobRecommendations = async (req, res) => {
   try {
-    const token = req.headers.authorization;
     const page = parseInt(req.query.page, 10) || 1;
+    // Tận dụng req.user từ middleware checkAuthOrGuest
+    const user = req.user; 
 
     // =========================
-    // CASE 1: KHÔNG ĐĂNG NHẬP
+    // CASE 1: KHÔNG ĐĂNG NHẬP (Guest)
     // =========================
-    if (!token) {
+    if (!user) {
+      // Đảm bảo JOB_SERVICE_URL đã được định nghĩa trong file .env hoặc constants
       const response = await axios.get(
         `${JOB_SERVICE_URL}/home`,
         { params: { page } }
       );
-
       return res.status(200).json(response.data);
     }
 
     // =========================
-    // CASE 2: CÓ ĐĂNG NHẬP
+    // CASE 2: CÓ ĐĂNG NHẬP (User)
     // =========================
-    const userId = extractUserId(req.user);
+    // Sử dụng user_id từ model User đã lưu trong thông tin đã giải mã
+    const userId = user.user_id; 
 
     let q = "";
     let province = "";
     let viewedJobs = [];
 
+    // Tìm lịch sử dựa trên userId (kiểu Number theo model của bạn)
     const history = await Recommend.findOne({ userId });
     if (history) {
       q = history.last_search || "";
@@ -68,20 +71,21 @@ export const getJobRecommendations = async (req, res) => {
           page,
           excludeIds: viewedJobs.join(","),
         },
-        headers: { Authorization: token },
+        // Gửi lại chính token từ request gốc nếu cần
+        headers: { Authorization: req.headers.authorization },
       }
     );
 
     const jobsData = response.data;
     const jobs = jobsData.data || [];
 
-    // Lưu viewed_jobs
+    // Cập nhật viewed_jobs
     if (jobs.length > 0) {
       const newJobIds = jobs
         .map(j => j.job_id)
         .filter(id => !viewedJobs.includes(id));
 
-      const updatedViewedJobs = [...viewedJobs, ...newJobIds].slice(0, 6);
+      const updatedViewedJobs = [...viewedJobs, ...newJobIds].slice(-10); // Lấy 10 jobs gần nhất thay vì 6
 
       await Recommend.updateOne(
         { userId },
@@ -93,10 +97,13 @@ export const getJobRecommendations = async (req, res) => {
     return res.status(200).json(jobsData);
 
   } catch (error) {
-    console.error("❌ Lỗi API Recommend:", error.message);
+    // Log chi tiết lỗi để debug dễ hơn
+    console.error("❌ Lỗi API Recommend:", error.response?.data || error.message);
 
     return res.status(500).json({
-      message: "Lỗi nội bộ server.",
+      success: false,
+      message: "Lỗi hệ thống khi lấy gợi ý việc làm.",
+      error: error.message
     });
   }
 };

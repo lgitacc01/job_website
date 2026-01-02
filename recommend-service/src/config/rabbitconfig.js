@@ -1,7 +1,7 @@
 import amqp from 'amqplib';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
-import Recommend from '../models/Recommend.js'; 
+import Recommend from '../models/recommend.js'; 
 
 dotenv.config();
 
