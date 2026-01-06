@@ -14,8 +14,12 @@ const JobDetail = () => {
   const [hasApplied, setHasApplied] = useState(false);
 
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [currentUserRoleId, setCurrentUserRoleId] = useState(null);
   const [applicantCount, setApplicantCount] = useState(0);
   const [cvList, setCvList] = useState([]);
+
+  // Modal xác nhận
+  const [confirmType, setConfirmType] = useState(null); // 'approve' | 'delete' | null
 
   const formatDate = (dateStr) => {
     if (!dateStr) return null;
@@ -26,14 +30,57 @@ const JobDetail = () => {
     ).padStart(2, '0')}/${d.getFullYear()}`;
   };
 
+  const normalizeStatus = (val) => {
+    if (!val) return null;
+    const s = String(val).toLowerCase().trim();
+    const map = {
+      available: 'available',
+      active: 'available',
+      'còn hạn': 'available',
+      waiting: 'waiting',
+      pending: 'waiting',
+      'chờ duyệt': 'waiting',
+      outdated: 'outdated',
+      expired: 'outdated',
+      'hết hạn': 'outdated',
+      deleted: 'deleted',
+      removed: 'deleted',
+      'đã xóa': 'deleted',
+      '1': 'available',
+      '2': 'waiting',
+      '3': 'outdated',
+      '4': 'deleted',
+      true: 'deleted',
+    };
+    return map[s] || null;
+  };
+
+  const statusMap = {
+    available: { label: 'Còn hạn', cls: 'bg-emerald-50 text-emerald-700' },
+    outdated: { label: 'Hết hạn', cls: 'bg-rose-50 text-rose-700' },
+    waiting: { label: 'Chờ duyệt', cls: 'bg-amber-50 text-amber-700' },
+    deleted: { label: 'Đã xóa', cls: 'bg-gray-100 text-gray-600' },
+  };
+
+  const rawStatus =
+    job?.job_status ??
+    job?.status ??
+    job?.state ??
+    (job?.is_deleted ? 'deleted' : null) ??
+    (job?.is_waiting ? 'waiting' : null);
+
+  const status = statusMap[normalizeStatus(rawStatus)] || null;
+
   // ===== LẤY USER HIỆN TẠI =====
   useEffect(() => {
     const fetchMe = async () => {
       try {
         const res = await axiosClient.get('/user/user/me');
         setCurrentUserId(res.data.user.user_id);
+        setCurrentUserRoleId(res.data.user.role_id); // <-- lấy role_id
       } catch {
         setCurrentUserId(null);
+        setCurrentUserRoleId(null);
       }
     };
     fetchMe();
@@ -156,6 +203,45 @@ const JobDetail = () => {
     setIsApplying(false);
   };
 
+  // ===== DUYỆT JOB =====
+  const handleApproveJob = async () => {
+    setIsApplying(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      await axiosClient.post(
+        '/job/job/accept',
+        { job_id: id },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setJob((prev) => ({ ...prev, status: 'approved' }));
+      setConfirmType(null);
+      navigate('/admin/jobs'); // <-- quay lại trang admin
+    } catch (err) {
+      console.error(err.response?.data?.message || 'Duyệt công việc thất bại.');
+    } finally {
+      setIsApplying(false);
+    }
+  };
+
+  // ===== XÓA JOB =====
+  const handleDeleteJob = async () => {
+    setIsApplying(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      await axiosClient.post(
+        '/job/job/refuse',
+        { job_id: id },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setConfirmType(null);
+      navigate('/admin/jobs'); // <-- quay lại trang admin
+    } catch (err) {
+      console.error(err.response?.data?.message || 'Xóa công việc thất bại.');
+    } finally {
+      setIsApplying(false);
+    }
+  };
+
   // ===== RENDER =====
   if (loading)
     return (
@@ -224,6 +310,16 @@ const JobDetail = () => {
               </div>
             </div>
 
+            <div className="mt-2 flex flex-wrap gap-2">
+              {status && (
+                <span
+                  className={`px-3 py-1 rounded-full text-xs font-medium ${status.cls}`}
+                >
+                  📢 {status.label}
+                </span>
+              )}
+            </div>
+
             <hr className="my-8" />
 
             <section>
@@ -255,6 +351,71 @@ const JobDetail = () => {
                 <span className="font-semibold text-red-500">
                   {closedDateStr}
                 </span>
+              </div>
+            )}
+
+            {/* NÚT DUYỆT & XÓA – chỉ hiển thị khi status=waiting và role_id=1 */}
+            {job.status === 'waiting' && currentUserRoleId === 1 && (
+              <div className="mt-8 flex justify-end gap-3">
+                <button
+                  onClick={() => setConfirmType('approve')}
+                  disabled={isApplying}
+                  className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg"
+                >
+                  Duyệt
+                </button>
+                <button
+                  onClick={() => setConfirmType('delete')}
+                  disabled={isApplying}
+                  className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg"
+                >
+                  Xóa
+                </button>
+              </div>
+            )}
+
+            {/* Modal xác nhận */}
+            {confirmType && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                <div className="bg-white w-full max-w-md rounded-lg shadow-lg">
+                  <div className="p-6">
+                    <h3 className="text-lg font-bold mb-2">
+                      {confirmType === 'approve'
+                        ? 'Xác nhận duyệt công việc'
+                        : 'Xác nhận xóa công việc'}
+                    </h3>
+                    <p className="text-gray-600">
+                      {confirmType === 'approve'
+                        ? 'Bạn có muốn duyệt công việc này không?'
+                        : 'Bạn có muốn xóa công việc này không?'}
+                    </p>
+                    <div className="mt-6 flex justify-end gap-3">
+                      <button
+                        onClick={() => setConfirmType(null)}
+                        className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium"
+                      >
+                        Hủy
+                      </button>
+                      {confirmType === 'approve' ? (
+                        <button
+                          onClick={handleApproveJob}
+                          disabled={isApplying}
+                          className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-bold"
+                        >
+                          Duyệt
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleDeleteJob}
+                          disabled={isApplying}
+                          className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold"
+                        >
+                          Xóa
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>

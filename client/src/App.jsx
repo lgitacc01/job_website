@@ -10,6 +10,7 @@ import JobDetail from './pages/JobDetail';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
 import MyJobs from './pages/MyJobs';
+import AdminJobs from './pages/AdminJobs';
 
 // Component bảo vệ (Bạn tạo file PrivateRoute.jsx rồi import vào đây)
 import PrivateRoute from './components/PrivateRoutes';
@@ -25,6 +26,7 @@ function App() {
 	<Route path="/register" element={<Register />} />
       <Route path="/profile" element={<Profile />} />
 	<Route path="/my-jobs" element={<MyJobs />} />
+	<Route path="/admin/jobs" element={<AdminJobs />} />
 
       {/* ADMIN ROUTE (Role = 1) */}
       <Route 

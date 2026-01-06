@@ -46,7 +46,7 @@ export const applyJob = async (req, res) => {
       user_id,
       job_id
     });
-
+    console.log("New application created:", application);
     await application.save();
 
     res.status(201).json({

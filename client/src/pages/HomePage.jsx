@@ -3,8 +3,12 @@ import axiosClient from "../api/axiosClient";
 import JobCard from "../components/JobCard";
 import Navbar from "../components/Navbar";
 import SearchBar from "../components/SearchBar";
+import { useLocation } from "react-router-dom";
 
 const HomePage = () => {
+  const location = useLocation();
+  const [welcome, setWelcome] = useState("");
+
   const [jobs, setJobs] = useState([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -111,6 +115,15 @@ const HomePage = () => {
     setPage((p) => Math.min(p + 1, totalPages));
   };
 
+  useEffect(() => {
+    const name = location.state?.welcomeUserName;
+    if (name) {
+      setWelcome(`Chào mừng, ${name}!`);
+      const t = setTimeout(() => setWelcome(''), 5000);
+      return () => clearTimeout(t);
+    }
+  }, [location.state]);
+
   return (
     <div className="bg-gray-100 min-h-screen">
       {/* ===== NAVBAR ===== */}
@@ -187,6 +200,12 @@ const HomePage = () => {
           )}
         </div>
       </div>
+
+      {welcome && (
+        <div className="fixed top-4 right-4 bg-blue-600 text-white px-4 py-2 rounded shadow-lg">
+          {welcome}
+        </div>
+      )}
     </div>
   );
 };

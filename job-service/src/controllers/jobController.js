@@ -8,39 +8,43 @@ export const getAllJobs = async (req, res) => {
 };
 
 export const createJob = async (req, res) => {
-  try { 
-    // Determine the next job_id by inspecting the current max
-    const last = await Job.findOne().sort({ job_id: -1 }).select('job_id');
+  try {
+    // Lấy job_id tiếp theo
+    const last = await Job.findOne().sort({ job_id: -1 }).select("job_id");
     const nextId = last && last.job_id ? last.job_id + 1 : 1;
 
-    // Determine post_user_id: prefer req.user (set by verifyToken middleware).
-    // If not present, try to decode Authorization header token as a fallback.
-    let postUserId = null;
-    if (req.user && (req.user.user_id || req.user.id || req.user._id)) {
-      postUserId = req.user.user_id || req.user.id || req.user._id;
-    } else if (req.headers && req.headers.authorization) {
-      try {
-        const token = req.headers.authorization.split(' ')[1];
-        // decode without verification to avoid requiring secret here
-        const decoded = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString('utf8'));
-        postUserId = decoded.user_id || decoded.id || decoded._id || null;
-      } catch (e) {
-        console.warn('Could not decode token to extract user id:', e.message);
-      }
+    // Lấy user_id từ middleware verifyToken
+    const postUserId = req.user?.user_id || req.user?.id || req.user?._id;
+
+    if (!postUserId) {
+      return res.status(401).json({ message: "Unauthorized: missing user_id" });
     }
 
-  const payload = { ...req.body, job_id: nextId };
-  // Ensure new jobs default to 'available' status for moderation if no status supplied
-  if (!payload.status) payload.status = 'available';
-  if (postUserId) payload.post_user_id = postUserId;
+    // CHỈ lấy các field có trong model
+    const job = await Job.create({
+      job_id: nextId,
+      job_title: req.body.job_title,
+      company_name: req.body.company_name,
+      closed_date: req.body.closed_date,
+      salary: req.body.salary,
+      area: req.body.area,
+      experience: req.body.experience,
+      degree: req.body.degree,
+      description: req.body.description,
+      requirements: req.body.requirements,
+      benefits: req.body.benefits,
 
-    const job = await Job.create(payload);
+      post_user_id: postUserId,
+      status: "waiting"
+    });
+    console.log("Create job response:", job);
     res.status(201).json(job);
   } catch (error) {
-    console.error('Error creating job:', error);
-    res.status(500).json({ message: 'Failed to create job', error: error.message });
+    console.error("Create job error:", error);
+    res.status(500).json({ message: "Create job failed" });
   }
 };
+
 
 const extractUserId = (decoded) => {
   if (!decoded) return null;
@@ -79,7 +83,7 @@ export const searchJobs = async (req, res) => {
     // Query
     // =========================
     const baseFilter = {
-      status: { $in: ["available", "outdated"] },
+      status: { $in: ["available"] },
       ...(excludeJobIds.length > 0 && { job_id: { $nin: excludeJobIds } })
     };
 
@@ -363,7 +367,7 @@ export const getJobsForHomePagination = async (req, res) => {
 
     // 2. Định nghĩa Điều kiện Lọc (Giữ nguyên logic 'available' và 'outdated')
     const filterCondition = {
-      status: { $in: ['available', 'outdated'] }
+      status: { $in: ['available'] }
     };
     
     // 3. Tính toán Metadata (Tổng số Job thỏa mãn điều kiện)
@@ -432,7 +436,7 @@ export const search_fill = async (req, res) => {
     // Base filter (giống 2 hàm cũ)
     // =========================
     const baseFilter = {
-      status: { $in: ["available", "outdated"] },
+      status: { $in: ["available"] },
       ...(excludeJobIds.length > 0 && { job_id: { $nin: excludeJobIds } }),
     };
 
@@ -547,6 +551,166 @@ export const getPostedJob = async (req, res) => {
     console.error("Get Posted Job Error:", error);
     return res.status(500).json({
       message: "Lỗi server",
+      error: error.message
+    });
+  }
+};
+
+export const getWaitingJobs = async (req, res) => {
+  try {
+    const DEFAULT_LIMIT = 6;
+
+    // 1. Lấy và Xử lý tham số phân trang
+    const pageQuery = req.query.page;
+    const limitQuery = req.query.limit;
+
+    let page = 1;
+    if (pageQuery) {
+      const parsedPage = parseInt(pageQuery, 10);
+      if (!isNaN(parsedPage) && parsedPage > 0) {
+        page = parsedPage;
+      }
+    }
+
+    let limit = DEFAULT_LIMIT;
+    if (limitQuery) {
+      const parsedLimit = parseInt(limitQuery, 10);
+      if (!isNaN(parsedLimit) && parsedLimit > 0) {
+        limit = parsedLimit;
+      }
+    }
+
+    // 2. Định nghĩa Điều kiện Lọc (Chỉ lấy các job đang chờ duyệt)
+    const filterCondition = {
+      status: 'waiting' // Hoặc { $in: ['waiting'] } nếu bạn muốn linh hoạt sau này
+    };
+
+    // 3. Tính toán Metadata
+    const totalWaitingJobs = await Job.countDocuments(filterCondition);
+    const totalPages = Math.ceil(totalWaitingJobs / limit) || 1;
+
+    // Tính số bản ghi cần bỏ qua
+    const skip = (page - 1) * limit;
+
+    // 4. Truy vấn Database
+    const jobs = await Job.find(filterCondition)
+      .sort({ job_id: -1 }) // Job mới gửi duyệt lên đầu
+      .skip(skip)
+      .limit(limit);
+
+    // 5. Xử lý trường hợp không có job hoặc hết trang
+    if (jobs.length === 0) {
+      return res.status(200).json({
+        currentPage: page,
+        totalPages,
+        totalJobs: totalWaitingJobs,
+        count: 0,
+        data: [],
+        message: "Không có công việc nào đang chờ duyệt."
+      });
+    }
+
+    // 6. Trả về kết quả
+    res.status(200).json({
+      currentPage: page,
+      totalPages,
+      totalJobs: totalWaitingJobs,
+      count: jobs.length,
+      // Metadata về ID để tiện theo dõi
+      startJobId: jobs[jobs.length - 1].job_id,
+      endJobId: jobs[0].job_id,
+      data: jobs
+    });
+
+  } catch (error) {
+    console.error("Lỗi Find Waiting Jobs:", error);
+    res.status(500).json({
+      message: "Lỗi Server khi tìm kiếm công việc chờ duyệt",
+      error: error.message
+    });
+  }
+};
+
+export const acceptJob = async (req, res) => {
+  try {
+    // 1. Lấy job_id từ body (hoặc params tùy theo cách bạn thiết kế route)
+    const { job_id } = req.body;
+
+    if (!job_id) {
+      return res.status(400).json({ message: "Vui lòng cung cấp job_id" });
+    }
+
+    // 2. Tìm job và kiểm tra trạng thái hiện tại
+    const job = await Job.findOne({ job_id: job_id });
+
+    if (!job) {
+      return res.status(404).json({ message: "Không tìm thấy công việc này" });
+    }
+
+    // 3. Kiểm tra nếu job KHÔNG PHẢI đang ở trạng thái waiting
+    if (job.status !== 'waiting') {
+      return res.status(400).json({ 
+        message: `Không thể duyệt! Trạng thái hiện tại là '${job.status}', không phải 'waiting'.` 
+      });
+    }
+
+    // 4. Cập nhật trạng thái thành available
+    job.status = 'available';
+    await job.save();
+
+    // 5. Trả về thông báo thành công
+    res.status(200).json({
+      message: "Duyệt công việc thành công!",
+      data: job
+    });
+
+  } catch (error) {
+    console.error("Lỗi khi duyệt Job:", error);
+    res.status(500).json({
+      message: "Lỗi Server khi thực hiện duyệt công việc",
+      error: error.message
+    });
+  }
+};
+
+export const refuseJob = async (req, res) => {
+  try {
+    // 1. Lấy job_id từ body
+    const { job_id } = req.body;
+
+    if (!job_id) {
+      return res.status(400).json({ message: "Vui lòng cung cấp job_id" });
+    }
+
+    // 2. Tìm job và kiểm tra trạng thái hiện tại
+    const job = await Job.findOne({ job_id: job_id });
+
+    if (!job) {
+      return res.status(404).json({ message: "Không tìm thấy công việc này" });
+    }
+
+    // 3. Kiểm tra nếu job KHÔNG PHẢI đang ở trạng thái waiting
+    // (Chỉ những job đang đợi duyệt mới có thể bị từ chối/xóa)
+    if (job.status !== 'waiting') {
+      return res.status(400).json({ 
+        message: `Không thể từ chối! Trạng thái hiện tại là '${job.status}', không phải 'waiting'.` 
+      });
+    }
+
+    // 4. Cập nhật trạng thái thành deleted
+    job.status = 'deleted';
+    await job.save();
+
+    // 5. Trả về thông báo thành công
+    res.status(200).json({
+      message: "Từ chối công việc thành công!",
+      data: job
+    });
+
+  } catch (error) {
+    console.error("Lỗi khi từ chối Job:", error);
+    res.status(500).json({
+      message: "Lỗi Server khi thực hiện từ chối công việc",
       error: error.message
     });
   }

@@ -128,6 +128,7 @@ const CreateJob = () => {
                 <option value="Dưới 1 năm">Dưới 1 năm</option>
                 <option value="1-2 năm">1-2 năm</option>
                 <option value="2-4 năm">2-4 năm</option>
+                <option value="5 năm trở lên">5 năm trở lên</option>
               </select>
             </div>
             <div>
