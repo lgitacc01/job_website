@@ -417,13 +417,21 @@ const seedJobs = async () => {
     // - job_id 5,6 => 'waitting'
         // - job_id 7,8 => 'delete'
         // - job_id 13,14 => 'outdate'
-        rawJobs.forEach(j => {
-            // set closed_date to a past date so the job is expired
-            if (j.job_id === 5 || j.job_id === 6) j.status = 'waitting';
-            else if (j.job_id === 7 || j.job_id === 8) j.status = 'delete';
-            else if (j.job_id === 13 || j.job_id === 14) j.status = 'outdated';
-            else j.status = 'available';
-        });
+       rawJobs.forEach(j => {
+    // Nếu job_id nằm trong khoảng từ 1 đến 10, set status là 'waiting'
+    if (j.job_id >= 1 && j.job_id <= 10) {
+        j.status = 'waiting';
+    } 
+    else if (j.job_id === 11 || j.job_id === 12) {
+        j.status = 'deleted';
+    } 
+    else if (j.job_id === 13 || j.job_id === 14) {
+        j.status = 'outdated';
+    } 
+    else {
+        j.status = 'available';
+    }
+});
 
         console.log(`⏳ Đang bắt đầu chèn ${rawJobs.length} công việc mới...`);
 

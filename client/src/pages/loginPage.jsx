@@ -40,8 +40,8 @@ const LoginPage = () => {
         }
 
         // Có 2 role nhưng đều về homepage
-        alert('Đăng nhập thành công!');
-        navigate('/'); // hoặc '/home' nếu homepage.jsx map route khác
+        // alert('Đăng nhập thành công!');
+        navigate('/', { state: { welcomeUserName: res.data.user?.username } }); // hoặc '/home'
       }
     } catch (error) {
       console.error("Lỗi:", error);

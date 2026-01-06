@@ -6,7 +6,7 @@ const API_URL =
   "http://localhost:3000";
 
 const axiosClient = axios.create({
-  baseURL: API_URL,
+  baseURL: API_URL, 
   withCredentials: false,
 });
 

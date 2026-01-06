@@ -30,7 +30,6 @@ const Navbar = () => {
   return (
     <div className="bg-white shadow sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-
         {/* LEFT */}
         <div className="flex items-center gap-8">
           <Link to="/" className="text-xl font-bold text-blue-600">
@@ -76,8 +75,14 @@ const Navbar = () => {
             Công việc của tôi
           </button>
 
-         
-          
+          {roleId === 1 && (
+            <Link
+              to="/admin/jobs"
+              className="text-gray-700 hover:text-blue-600 font-medium"
+            >
+              Quản trị việc làm
+            </Link>
+          )}
         </div>
 
         {/* RIGHT */}
@@ -115,10 +120,7 @@ const Navbar = () => {
                   👤 Hồ sơ cá nhân
                 </Link>
 
-                {roleId === 1 && (
-                  <>
-                  </>
-                )}
+                {/* Đã chuyển “Quản trị việc làm” lên LEFT, bỏ khỏi menu avatar */}
 
                 <button
                   onClick={handleLogout}
